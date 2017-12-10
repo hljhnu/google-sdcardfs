@@ -288,17 +288,20 @@ static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode
 	/* save current_cred and override it */
 	OVERRIDE_CRED(SDCARDFS_SB(dir->i_sb), saved_cred, SDCARDFS_I(dir));
 
-	/* check disk space */
-	if (!check_min_free_space(dentry, 0, 1)) {
-		pr_err("sdcardfs: No minimum free space.\n");
-		err = -ENOSPC;
-		goto out_revert;
-	}
-
 	/* the lower_dentry is negative here */
 	sdcardfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	lower_mnt = lower_path.mnt;
+
+	lower_parent_dentry = dget_parent(dentry);
+	/* check disk space */
+	if (!check_min_free_space(lower_parent_dentry, 0, 1)) {
+		pr_err("sdcardfs: No minimum free space.\n");
+		err = -ENOSPC;
+		dput(lower_parent_dentry);
+		goto out_revert;
+	}
+	dput(lower_parent_dentry);
 	lower_parent_dentry = lock_parent(lower_dentry);
 
 	/* set last 16bytes of mode field to 0775 */
